@@ -404,7 +404,7 @@ int main() {
             throw std::runtime_error("Could not submitted");
         }
 
-        vk::Result result;
+        vk::Result result {};
         vk::PresentInfoKHR const presentInfo 
         {
             .sType = vk::StructureType::ePresentInfoKHR,
