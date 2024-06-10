@@ -458,4 +458,5 @@ int main() {
     SDL_DestroyWindow(window);
 
     SDL_Vulkan_UnloadLibrary();    
+    SDL_Quit();
 }
