@@ -16,6 +16,8 @@ add_subdirectory(external/Vulkan-Headers)
 
 
 add_executable(engine 
+    window.hpp
+    window.cpp
     main.cpp
 )
 
