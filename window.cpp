@@ -2,7 +2,7 @@
 
 void Window::createWindow() {
 
-    SDL_PropertiesID props = SDL_CreateProperties();
+        SDL_PropertiesID props = SDL_CreateProperties();
 
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Hello Vulkan");
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
@@ -14,12 +14,14 @@ void Window::createWindow() {
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, false);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
 
-    m_window = SDL_CreateWindowWithProperties(props);
-    if(!m_window) {
+    SDL_Window* window = SDL_CreateWindowWithProperties(props);
+    if(window == nullptr) {
         throw std::runtime_error("Error: Window::createWindow()");
     }
 
     SDL_DestroyProperties(props);
+
+    m_window = SDL_GetWindowID(window);
 }
 
 void Window::loadVulkanLibrary() {
@@ -61,7 +63,8 @@ void Window::createSurface() {
     
     VkSurfaceKHR surface;
     
-    SDL_bool success = SDL_Vulkan_CreateSurface(m_window, m_instance, {}, &surface);
+    auto window = SDL_GetWindowFromID(m_window);
+    SDL_bool success = SDL_Vulkan_CreateSurface(window, m_instance, {}, &surface);
     
     if(!success) {
         
@@ -375,16 +378,14 @@ void Window::createFence() {
     }
 }
 
-Window& Window::operator = (Window& window) {
-    return *this;
-}
-
 void Window::show() {
-    SDL_ShowWindow(m_window);
+    auto window = SDL_GetWindowFromID(m_window);
+    SDL_ShowWindow(window);
 }
 
 void Window::hide() {
-    SDL_HideWindow(m_window);
+    auto window = SDL_GetWindowFromID(m_window);
+    SDL_HideWindow(window);
 }
 
 void Window::setClearColor(float r, float g, float b) {
@@ -522,7 +523,12 @@ void Window::cleanUp() {
     if(m_instance) m_instance.destroy(nullptr, m_loader);
 
     SDL_Vulkan_UnloadLibrary();
-    if(m_window != nullptr) SDL_DestroyWindow(m_window);
+    if(m_window != 0) {
+        auto window = SDL_GetWindowFromID(m_window);
+        SDL_DestroyWindow(window);
+    } 
+    
+        
     SDL_Quit();
 }
 

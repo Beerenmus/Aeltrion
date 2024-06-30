@@ -14,6 +14,4 @@ int main() {
     }
 
     window.hide();
-
-    window.cleanUp();
 }

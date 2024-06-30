@@ -3,6 +3,7 @@
 #include <iostream>
 #include <ranges>
 #include <memory> 
+#include <utility>
 
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #include "vulkan/vulkan.hpp"
@@ -10,7 +11,7 @@
 #include "SDL3/SDL.h"
 #include "SDL3/SDL_vulkan.h"
 
-class Window {
+class Window final {
 
     private:
         struct Frame {
@@ -25,27 +26,26 @@ class Window {
         };
 
     private:
-        SDL_Window*                     m_window;
-        SDL_Event                       m_event;
-        uint32_t                        frameIndex = 0;
-        bool                            running = true;
+        SDL_WindowID                    m_window                    {};
+        SDL_Event                       m_event                     {};
+        uint32_t                        frameIndex                  {};
+        bool                            running                     {true};
 
     private:
-        uint32_t                        graphicsQueueFamilyIndex;
-        uint32_t                        m_version;
-        
-        vk::DispatchLoaderDynamic       m_loader;
-        vk::Instance                    m_instance;
-        vk::SurfaceKHR                  m_surface;
-        vk::PhysicalDevice              m_physicalDevice;
-        vk::Device                      m_device;
-        vk::Queue                       m_queue;
-        vk::SwapchainKHR                m_swapchain;
-        vk::SurfaceFormatKHR            m_surfaceFormat;
-        vk::RenderPass                  m_renderPass;
-        vk::ClearValue                  m_clearValue        {};
+        uint32_t                        graphicsQueueFamilyIndex    {};
+        uint32_t                        m_version                   {};
+        vk::DispatchLoaderDynamic       m_loader                    {};
+        vk::Instance                    m_instance                  {};
+        vk::SurfaceKHR                  m_surface                   {};
+        vk::PhysicalDevice              m_physicalDevice            {};
+        vk::Device                      m_device                    {};
+        vk::Queue                       m_queue                     {};
+        vk::SwapchainKHR                m_swapchain                 {};
+        vk::SurfaceFormatKHR            m_surfaceFormat             {};
+        vk::RenderPass                  m_renderPass                {};
+        vk::ClearValue                  m_clearValue                {};
 
-        std::vector<Frame>              m_frames;
+        std::vector<Frame>              m_frames                    {};
 
     public:
         void createWindow();
@@ -64,10 +64,12 @@ class Window {
 
     public:
         Window() = default;
-        Window(Window&&) = default;
+        Window(Window const&) = default;
+        Window(Window&& window) = default;
 
     public:
-        Window& operator = (Window& window);
+        Window& operator = (Window const&) = default;
+        Window& operator = (Window&&) = default;
 
     public:
         void show();
@@ -79,4 +81,8 @@ class Window {
         void cleanUp();
 
         static Window createDefaultWindow();
+
+        virtual ~Window() {
+            cleanUp();
+        };
 };
