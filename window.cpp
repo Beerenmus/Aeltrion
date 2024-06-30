@@ -1,17 +1,40 @@
 #include "window.hpp"
 
+void Window::recreateSwaphchain() {
+        
+    auto window = SDL_GetWindowFromID(m_window);
+    SDL_GetWindowSize(window, &m_width, &m_height);
+
+    vk::SwapchainKHR oldSwapchain = m_swapchain;
+        
+    m_device.waitIdle(m_loader);
+    createSwapchain(oldSwapchain);
+
+    for(Frame frame : m_frames) {
+        m_device.destroyFramebuffer(frame.framebuffer, nullptr, m_loader);
+        m_device.destroyImageView(frame.imageView, nullptr, m_loader);
+    }
+        
+    m_device.destroyRenderPass(m_renderPass, nullptr, m_loader);
+    m_device.destroySwapchainKHR(oldSwapchain, nullptr, m_loader);
+
+    createImageView();
+    createRenderPass();
+    createFramebuffer();
+}
+
 void Window::createWindow() {
 
-        SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_PropertiesID props = SDL_CreateProperties();
 
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Hello Vulkan");
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 800);
-    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 600);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, m_width);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, m_height);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
-    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, false);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
 
     SDL_Window* window = SDL_CreateWindowWithProperties(props);
@@ -127,9 +150,9 @@ void Window::createDevice() {
     m_queue = m_device.getQueue(graphicsQueueFamilyIndex, 0, m_loader);
 }
 
-void Window::createSwapchain() {
+void Window::createSwapchain(vk::SwapchainKHR swapchain) {
 
-    auto const surfaceCapabilities = m_physicalDevice.getSurfaceCapabilitiesKHR(m_surface, m_loader);
+    m_swapchainExtent = m_physicalDevice.getSurfaceCapabilitiesKHR(m_surface, m_loader).currentExtent;
     m_surfaceFormat = m_physicalDevice.getSurfaceFormatsKHR(m_surface, m_loader).front();
     auto const presentMode = m_physicalDevice.getSurfacePresentModesKHR(m_surface, m_loader).front();
 
@@ -138,7 +161,7 @@ void Window::createSwapchain() {
     swapchainCreateInfo.setMinImageCount(3);
     swapchainCreateInfo.setImageFormat(m_surfaceFormat.format);
     swapchainCreateInfo.setImageColorSpace(m_surfaceFormat.colorSpace);
-    swapchainCreateInfo.setImageExtent(surfaceCapabilities.currentExtent);
+    swapchainCreateInfo.setImageExtent(m_swapchainExtent);
     swapchainCreateInfo.setImageArrayLayers(1);
     swapchainCreateInfo.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment);
     swapchainCreateInfo.setImageSharingMode(vk::SharingMode::eExclusive);
@@ -146,7 +169,7 @@ void Window::createSwapchain() {
     swapchainCreateInfo.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque);
     swapchainCreateInfo.setPresentMode(presentMode);
     swapchainCreateInfo.setClipped(VK_FALSE);
-    swapchainCreateInfo.setOldSwapchain(nullptr);
+    swapchainCreateInfo.setOldSwapchain(swapchain);
 
     vk::Result result = m_device.createSwapchainKHR(&swapchainCreateInfo, nullptr, &m_swapchain, m_loader);
     if(result != vk::Result::eSuccess) {
@@ -154,8 +177,8 @@ void Window::createSwapchain() {
     }
 
     auto images = m_device.getSwapchainImagesKHR(m_swapchain, m_loader);
-    m_frames.resize(images.size());
 
+    m_frames.resize(images.size());
     for(std::size_t x=0; x<images.size(); x++) {
         m_frames[x].image = images[x];
     }
@@ -241,7 +264,7 @@ void Window::createRenderPass() {
         }
     };
 
-    std::vector const dependencies 
+    /*std::vector const dependencies 
     {
         vk::SubpassDependency 
         {
@@ -253,7 +276,7 @@ void Window::createRenderPass() {
             .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite,
             .dependencyFlags = vk::DependencyFlagBits::eByRegion
         }
-    };
+    };*/
     
     vk::RenderPassCreateInfo const renderPassCreateInfo 
     {
@@ -264,8 +287,8 @@ void Window::createRenderPass() {
         .pAttachments = descriptions.data(),
         .subpassCount = static_cast<uint32_t>(supasses.size()),
         .pSubpasses = supasses.data(),
-        .dependencyCount = static_cast<uint32_t>(dependencies.size()),
-        .pDependencies = dependencies.data(),
+        //.dependencyCount = static_cast<uint32_t>(dependencies.size()),
+        //.pDependencies = dependencies.data(),
     };
  
     vk::Result result = m_device.createRenderPass(&renderPassCreateInfo, nullptr, &m_renderPass, m_loader);
@@ -276,7 +299,7 @@ void Window::createRenderPass() {
 
 void Window::createFramebuffer() {
 
-    auto const surfaceCapabilities = m_physicalDevice.getSurfaceCapabilitiesKHR(m_surface, m_loader);
+    //auto const surfaceCapabilities = m_physicalDevice.getSurfaceCapabilitiesKHR(m_surface, m_loader);
 
     for(auto& frame : m_frames) {
 
@@ -288,8 +311,8 @@ void Window::createFramebuffer() {
             .renderPass = m_renderPass,
             .attachmentCount = 1,
             .pAttachments = &frame.imageView,
-            .width = surfaceCapabilities.currentExtent.width,
-            .height = surfaceCapabilities.currentExtent.height,
+            .width = m_swapchainExtent.width,
+            .height = m_swapchainExtent.height,
             .layers = 1
         };
 
@@ -423,24 +446,25 @@ void Window::update() {
         throw std::runtime_error("Error: render() Failed to reset fences");
     }
 
-    m_device.resetCommandPool(m_frames[frameIndex].commandPool, {}, m_loader);
-
-    auto imageIndex = m_device.acquireNextImageKHR(m_swapchain, UINT64_MAX, m_frames[frameIndex].waitSemaphore, {}, m_loader);
-    if(imageIndex.result != vk::Result::eSuccess) {
+    auto imageIndex = m_device.acquireNextImageKHR(m_swapchain, UINT64_MAX, m_frames[frameIndex].waitSemaphore, {}, m_loader); 
+    if(imageIndex.result == vk::Result::eErrorOutOfDateKHR || imageIndex.result == vk::Result::eSuboptimalKHR) {
+        recreateSwaphchain();
+        return;
+    } else if(imageIndex.result != vk::Result::eSuccess) {
         throw std::runtime_error("Failed to aquire next image");
     }
 
-    auto const surfaceCapabilities = m_physicalDevice.getSurfaceCapabilitiesKHR(m_surface, m_loader);
+    m_device.resetCommandPool(m_frames[frameIndex].commandPool, {}, m_loader);
 
     vk::RenderPassBeginInfo renderPassBeginInfo 
     {
         .sType = vk::StructureType::eRenderPassBeginInfo,
         .pNext = {},
         .renderPass = m_renderPass,
-        .framebuffer = m_frames[frameIndex].framebuffer,
+        .framebuffer = m_frames[imageIndex.value].framebuffer,
         .renderArea {
             .offset = {0, 0},
-            .extent = surfaceCapabilities.currentExtent
+            .extent = m_swapchainExtent
         },
         .clearValueCount = 1,
         .pClearValues = &m_clearValue
@@ -477,7 +501,6 @@ void Window::update() {
         throw std::runtime_error("Could not submitted");
     }
 
-    vk::Result result {};
     vk::PresentInfoKHR const presentInfo 
     {
         .sType = vk::StructureType::ePresentInfoKHR,
@@ -487,14 +510,12 @@ void Window::update() {
         .swapchainCount = 1,
         .pSwapchains = &m_swapchain,
         .pImageIndices = &imageIndex.value,
-        .pResults = &result
+        .pResults = nullptr
     };
 
-    if(result != vk::Result::eSuccess) {
-        throw std::runtime_error("Could not present");
-    }
-
-    if(vk::Result result = m_queue.presentKHR(presentInfo, m_loader); result != vk::Result::eSuccess) {
+    if(vk::Result result = m_queue.presentKHR(&presentInfo, m_loader); result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+        recreateSwaphchain();
+    } else if(result != vk::Result::eSuccess) {
         throw std::runtime_error("Could not queue present");   
     }
 

@@ -30,6 +30,10 @@ class Window final {
         SDL_Event                       m_event                     {};
         uint32_t                        frameIndex                  {};
         bool                            running                     {true};
+        int                             m_width                     {800};
+        int                             m_height                    {600};
+
+        vk::Extent2D                    m_swapchainExtent           {};
 
     private:
         uint32_t                        graphicsQueueFamilyIndex    {};
@@ -47,13 +51,16 @@ class Window final {
 
         std::vector<Frame>              m_frames                    {};
 
+    private:
+        void recreateSwaphchain();
+
     public:
         void createWindow();
         void loadVulkanLibrary();
         void createInstance();
         void createSurface();
         void createDevice();
-        void createSwapchain();
+        void createSwapchain(vk::SwapchainKHR swapchain = {});
         void createImageView();
         void createRenderPass();
         void createFramebuffer();
